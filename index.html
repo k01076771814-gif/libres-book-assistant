@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Книжный помощник — Telegram Bot & Mini App UX/UI</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Background decorative blobs -->
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+
+  <div class="container">
+    
+    <!-- Left panel: Presentation & Control -->
+    <div class="info-panel">
+      <div class="logo">
+        <span class="logo-icon">👑</span>
+        <span class="logo-text">Libres Premium</span>
+      </div>
+      <h1>Telegram-бот «Книжный помощник»</h1>
+      <p class="subtitle">Интерактивный прототип коммерческого сервиса с подпиской. Протестируйте Free и Premium сценарии.</p>
+      
+      <div class="features-list">
+        <div class="feat-item">
+          <div class="feat-num">1</div>
+          <div>
+            <h3>Человечный AI-диалог</h3>
+            <p>Бот общается свободно и задает эмпатичные вопросы, уходя от ощущения сухой анкеты.</p>
+          </div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-num">2</div>
+          <div>
+            <h3>3 ranked рекомендации</h3>
+            <p>Выдача содержит 🥇 Лучшее совпадение, 🥈 Альтернативу и 🥉 Экспериментальный вариант с партнерскими ссылками «Где читать».</p>
+          </div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-num">3</div>
+          <div>
+            <h3>Интегрированный Paywall</h3>
+            <p>Пользователи Free-версии видят лимиты подбора, закрытое AI-обсуждение и заблюренные альтернативные книги.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="instructions">
+        <h4>💡 Инструкция по тестированию:</h4>
+        <ul>
+          <li><strong>Free режим:</strong> Пройдите подбор. Вы увидите 1-ю книгу целиком, а 2-я и 3-я будут скрыты размытием (клик по ним вызовет Paywall). Попытка кликнуть <strong>«💬 Обсудить»</strong> также выдаст экран подписки.</li>
+          <li><strong>Покупка Premium:</strong> Откройте настройки или кликните по заблокированной книге, нажмите <strong>«Оформить Premium подписку»</strong>. Все лимиты снимутся, а заблюренные книги в истории чата разблокируются на лету!</li>
+        </ul>
+      </div>
+
+      <div class="badge-container">
+        <span class="badge">Commercial Product</span>
+        <span class="badge">Dynamic Paywall</span>
+        <span class="badge">v1.2.0</span>
+      </div>
+    </div>
+
+    <!-- Right panel: Interactive Phone Simulator -->
+    <div class="phone-wrapper">
+      <div class="phone-frame">
+        <!-- Speaker and Camera notch -->
+        <div class="phone-notch">
+          <div class="notch-camera"></div>
+          <div class="notch-speaker"></div>
+        </div>
+        
+        <!-- Screen Content -->
+        <div class="phone-screen">
+          
+          <!-- TELEGRAM CHAT VIEW -->
+          <div class="tg-chat-view active" id="tgChatView">
+            <!-- Header -->
+            <div class="tg-header">
+              <div class="tg-header-left">
+                <div class="tg-back-btn" id="tgHeaderBackBtn" style="display: none;">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 18L9 12L15 6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div class="tg-avatar">📖</div>
+                <div class="tg-chat-info">
+                  <span class="tg-chat-name">Книжный помощник</span>
+                  <span class="tg-chat-status">бот</span>
+                </div>
+              </div>
+              <div class="tg-header-right">
+                <div id="chatPremiumIndicator" style="display: none; cursor: pointer; color: #f39c12; font-size: 0.8rem; font-weight: 700; background: rgba(243, 156, 18, 0.15); padding: 2px 8px; border-radius: 10px;">⭐ Premium</div>
+              </div>
+            </div>
+
+            <!-- Chat History -->
+            <div class="tg-history" id="tgHistory">
+              <!-- Messages will be injected here -->
+            </div>
+
+            <!-- Suggestion / Quick Action Panel -->
+            <div class="tg-suggestion-bar" id="tgSuggestionBar">
+              <!-- Dynamic short hints or mini-app entry links -->
+            </div>
+
+            <!-- Bottom Command Panel / Input -->
+            <div class="tg-bottom-bar">
+              <div class="tg-input-row">
+                <div class="tg-attach-btn">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                </div>
+                <div class="tg-input-wrapper">
+                  <input type="text" id="tgMessageInput" placeholder="Сообщение..." autocomplete="off">
+                </div>
+                <div class="tg-send-btn" id="tgSendBtn">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </div>
+              </div>
+              
+              <!-- Reply Keyboard (Bottom Main Menu) -->
+              <div class="tg-reply-keyboard" id="tgReplyKeyboard">
+                <button class="tg-kb-btn" data-action="pick"><span class="btn-emoji">🔍</span> Подобрать книгу</button>
+                <div class="tg-kb-row">
+                  <button class="tg-kb-btn" data-action="mybooks"><span class="btn-emoji">📚</span> Мои книги</button>
+                  <button class="tg-kb-btn" data-action="discuss"><span class="btn-emoji">💬</span> Обсудить</button>
+                </div>
+                <div class="tg-kb-row">
+                  <button class="tg-kb-btn" data-action="favorites"><span class="btn-emoji">❤️</span> Избранное</button>
+                  <button class="tg-kb-btn" data-action="settings"><span class="btn-emoji">⚙️</span> Настройки</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TELEGRAM MINI APP VIEW (OVERLAY SHEET) -->
+          <div class="tg-miniapp-view" id="tgMiniAppView">
+            <!-- Mini App Header -->
+            <div class="ma-header">
+              <button class="ma-close-btn" id="maCloseBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+              <div class="ma-title-container">
+                <span class="ma-title" id="maTitle">Книжный помощник</span>
+                <span class="ma-subtitle">mini app</span>
+              </div>
+              <div class="ma-header-actions">
+                <!-- Premium Status badge / CTA button -->
+                <button class="ma-action-btn" id="maPremiumBadge" style="color: #f39c12; font-weight: 700; display: none;">⭐ Premium</button>
+                <button class="ma-action-btn" id="maGetPremiumBtn" style="color: #94a3b8; font-size: 0.72rem; border: 1px solid rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 12px; background: rgba(255,255,255,0.02);">⭐ Получить Premium</button>
+                
+                <div class="ma-menu-dots">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mini App Body Content -->
+            <div class="ma-content" id="maContent">
+
+              <!-- SCREEN 1: BOOK CARD DETAILS (Shared lookup) -->
+              <div class="ma-screen" id="maScreenResult">
+                <div class="book-card-container">
+                  <!-- Book Main Intro Banner -->
+                  <div class="ma-book-hero" id="maBookHero">
+                    <div class="book-blur-bg" id="bookBlurBg"></div>
+                    <div class="book-hero-content">
+                      <div class="book-cover-3d" id="bookCover3D">
+                        <span class="cover-emoji" id="bookCoverEmoji">📖</span>
+                      </div>
+                      <div class="book-meta-primary">
+                        <h2 id="bookTitle">1984</h2>
+                        <h3 id="bookAuthor">Джордж Оруэлл</h3>
+                        <div class="book-badges">
+                          <span class="b-badge rating"><span class="star">⭐</span> <span id="bookRating">4.8</span></span>
+                          <span class="b-badge genre" id="bookGenre">Антиутопия</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Quick Stats Grid -->
+                  <div class="stats-grid">
+                    <div class="stat-box">
+                      <span class="stat-icon">📄</span>
+                      <span class="stat-val" id="bookPages">320</span>
+                      <span class="stat-lbl">страниц</span>
+                    </div>
+                    <div class="stat-box">
+                      <span class="stat-icon">⏱️</span>
+                      <span class="stat-val" id="bookReadTime">~6 часов</span>
+                      <span class="stat-lbl">время чтения</span>
+                    </div>
+                    <div class="stat-box">
+                      <span class="stat-icon">🔥</span>
+                      <span class="stat-val">100%</span>
+                      <span class="stat-lbl">совпадение</span>
+                    </div>
+                  </div>
+
+                  <!-- Tab Navigation for book details -->
+                  <div class="book-tab-nav">
+                    <button class="tab-nav-btn active" data-tab="about">О книге</button>
+                    <button class="tab-nav-btn" data-tab="reviews">Мнения</button>
+                  </div>
+
+                  <!-- Tab Contents -->
+                  <div class="book-tab-contents">
+                    <!-- About Tab -->
+                    <div class="tab-pane active" id="tabPaneAbout">
+                      <div class="detail-section">
+                        <h4>💡 Почему книга подходит именно вам:</h4>
+                        <p class="why-fits-text" id="bookWhyFits">Вы выбрали мрачное настроение...</p>
+                      </div>
+
+                      <div class="detail-section">
+                        <h4>Аннотация</h4>
+                        <p class="annotation-text" id="bookAnnotation">Роман-предостережение...</p>
+                      </div>
+
+                      <div class="detail-section">
+                        <h4>Ключевые преимущества:</h4>
+                        <ul class="benefits-list" id="bookBenefits">
+                          <!-- Injected by JS -->
+                        </ul>
+                      </div>
+
+                      <div class="detail-section">
+                        <h4>Где читать или купить:</h4>
+                        <div class="book-purchase-links" id="bookPurchaseLinks">
+                          <a class="book-purchase-link paper" id="bookPaperLink" target="_blank" rel="noopener noreferrer">
+                            <span class="purchase-icon">📖</span>
+                            <span>
+                              <b>Бумажная</b>
+                              <small>Найти в магазине</small>
+                            </span>
+                          </a>
+                          <a class="book-purchase-link ebook" id="bookEbookLink" target="_blank" rel="noopener noreferrer">
+                            <span class="purchase-icon">📱</span>
+                            <span>
+                              <b>Электронная</b>
+                              <small>Читать онлайн</small>
+                            </span>
+                          </a>
+                          <a class="book-purchase-link audio" id="bookAudioLink" target="_blank" rel="noopener noreferrer">
+                            <span class="purchase-icon">🎧</span>
+                            <span>
+                              <b>Аудио</b>
+                              <small>Слушать</small>
+                            </span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Reviews Tab -->
+                    <div class="tab-pane" id="tabPaneReviews">
+                      <div class="reviews-list" id="bookReviewsList">
+                        <!-- Injected by JS -->
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bottom Floating Actions -->
+                <div class="ma-result-actions">
+                  <button class="action-circle-btn" id="btnAddToFav" title="В избранное">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                  </button>
+                  <button class="ma-btn ma-btn-primary flex-grow" id="btnAddToLibrary">Добавить в Мои книги 📚</button>
+                </div>
+              </div>
+
+              <!-- SCREEN 2: MY BOOKS (LIBRARY) -->
+              <div class="ma-screen" id="maScreenMyBooks">
+                <div class="screen-header-inline">
+                  <h2>Моя книжная полка</h2>
+                  <p>Список ваших книг и прогресс чтения</p>
+                </div>
+
+                <!-- Shelf Tabs -->
+                <div class="shelf-tabs">
+                  <button class="shelf-tab-btn active" data-shelf="reading">Читаю</button>
+                  <button class="shelf-tab-btn" data-shelf="want">Хочу прочесть</button>
+                  <button class="shelf-tab-btn" data-shelf="finished">Прочитано</button>
+                </div>
+
+                <!-- Shelf Content -->
+                <div class="shelf-content" id="shelfContentList">
+                  <!-- Dynamic Shelf Items Injected by JS -->
+                </div>
+              </div>
+
+              <!-- SCREEN 3: FAVORITES -->
+              <div class="ma-screen" id="maScreenFavorites">
+                <div class="screen-header-inline">
+                  <h2>Избранные книги</h2>
+                  <p>Сохраненные книги для быстрого доступа</p>
+                </div>
+
+                <div class="fav-grid" id="favGridList">
+                  <!-- Dynamic Injected by JS -->
+                </div>
+              </div>
+
+              <!-- SCREEN 4: SETTINGS -->
+              <div class="ma-screen" id="maScreenSettings">
+                <div class="screen-header-inline">
+                  <h2>Настройки профиля</h2>
+                  <p>Персонализация работы книжного помощника</p>
+                </div>
+
+                <div class="settings-group" id="settingsPremiumBlock">
+                  <h3>Подписка</h3>
+                  <div class="setting-item-toggle" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(243, 156, 18, 0.1)); border-color: rgba(243, 156, 18, 0.25);">
+                    <div class="setting-info">
+                      <span class="setting-title" style="color: #f39c12; font-weight: 700;">Libres Premium ⭐</span>
+                      <span class="setting-desc" id="settingsPremiumStatusDesc">Получить неограниченный доступ</span>
+                    </div>
+                    <button class="shelf-action-btn" id="settingsPremiumBtn" style="background: #f39c12; color: #000; font-weight: 700; border: none;">Открыть</button>
+                  </div>
+                </div>
+
+                <div class="settings-group">
+                  <h3>Скорость чтения</h3>
+                  <div class="setting-item">
+                    <div class="setting-info">
+                      <span class="setting-title">Ваша скорость</span>
+                      <span class="setting-desc">Влияет на расчет времени чтения книг</span>
+                    </div>
+                    <select class="ma-select" id="settingsReadSpeed">
+                      <option value="slow">Спокойная (200 сл/мин)</option>
+                      <option value="medium" selected>Средняя (250 сл/мин)</option>
+                      <option value="fast">Быстрая (350 сл/мин)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="settings-group">
+                  <h3>Внешний вид и Уведомления</h3>
+                  <div class="setting-item-toggle">
+                    <div class="setting-info">
+                      <span class="setting-title">Уведомления бота</span>
+                      <span class="setting-desc">Напоминать о ежедневном чтении</span>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" id="settingsNotifications" checked>
+                      <span class="slider round"></span>
+                    </label>
+                  </div>
+                  
+                  <div class="setting-item-toggle">
+                    <div class="setting-info">
+                      <span class="setting-title">Тактильный отклик</span>
+                      <span class="setting-desc">Вибрация интерфейса при кликах (Taptic Engine)</span>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" id="settingsHaptic" checked>
+                      <span class="slider round"></span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="settings-group">
+                  <h3>Данные приложения</h3>
+                  <button class="ma-btn ma-btn-danger" id="settingsResetBtn">Сбросить историю и прогресс</button>
+                </div>
+              </div>
+
+              <!-- SCREEN 5: PREMIUM LANDING PAGE (Paywall) -->
+              <div class="ma-screen" id="maScreenPremium">
+                <div class="premium-badge-glowing">⭐ PREMIUM ACCESS</div>
+                
+                <div class="premium-hero">
+                  <h2>Твой идеальный литературный ассистент</h2>
+                  <p>Читай книги, которые действительно тебе подходят. Обсуждай, анализируй, планируй.</p>
+                </div>
+
+                <div class="premium-benefits">
+                  <div class="prem-benefit-item">
+                    <span class="pb-icon">🏆</span>
+                    <div class="pb-text">
+                      <h4>Тройные рекомендации</h4>
+                      <p>Выдача 3 ranked вариантов (Лучшее совпадение, Альтернатива, Эксперимент) вместо одной книги.</p>
+                    </div>
+                  </div>
+                  <div class="prem-benefit-item">
+                    <span class="pb-icon">🧠</span>
+                    <div class="pb-text">
+                      <h4>AI-Литературный клуб</h4>
+                      <p>Свободное обсуждение прочитанных книг, анализ скрытых смыслов и ответов на вопросы.</p>
+                    </div>
+                  </div>
+                  <div class="prem-benefit-item">
+                    <span class="pb-icon">📈</span>
+                    <div class="pb-text">
+                      <h4>Персональные планы чтения</h4>
+                      <p>Подбор следующей книги на основе истории чтения и ваших личных целей.</p>
+                    </div>
+                  </div>
+                  <div class="prem-benefit-item">
+                    <span class="pb-icon">🚀</span>
+                    <div class="pb-text">
+                      <h4>Безлимитные подборы</h4>
+                      <p>Снятие дневного лимита подборов книг (нет ограничений на диалоги).</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Tariff Options -->
+                <div class="tariff-selector">
+                  <div class="tariff-card active" data-tariff="monthly">
+                    <div class="tariff-badge">Популярно</div>
+                    <span class="tariff-name">1 Месяц</span>
+                    <div class="tariff-price">
+                      <span class="price-val">499 ₽</span>
+                      <span class="price-period">/ мес</span>
+                    </div>
+                    <span class="tariff-desc">Идеально для теста</span>
+                  </div>
+                  
+                  <div class="tariff-card" data-tariff="yearly">
+                    <div class="tariff-badge green">Выгода 33%</div>
+                    <span class="tariff-name">12 Месяцев</span>
+                    <div class="tariff-price">
+                      <span class="price-val">3 990 ₽</span>
+                      <span class="price-period">/ год</span>
+                    </div>
+                    <span class="tariff-desc">332 ₽ в месяц</span>
+                  </div>
+                </div>
+
+                <div class="premium-cta-container">
+                  <button class="ma-btn ma-btn-primary premium-cta-btn" id="btnSubscribePremium">Оформить Premium подписку ⭐</button>
+                  <p class="premium-disclaimer">Отмена в любой момент в настройках. Безопасная оплата.</p>
+                </div>
+              </div>
+
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="booksData.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

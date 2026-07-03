@@ -1,0 +1,19 @@
+{
+  "name": "libres-book-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Telegram book assistant mini app with API, Telegram webhook, AI adapter, and static frontend.",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "check": "node scripts/smoke-check.js",
+    "db:migrate": "node scripts/migrate.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
