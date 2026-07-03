@@ -21,8 +21,10 @@ const state = {
     tags: []
   },
   quizChatStep: null, // null, 1 (mood), 2 (favorites/tags), 3 (volume)
+  consultationHistory: [],
   selectedBook: null,
   aiChatContext: null, // Track currently discussed book
+  startupTimers: [],
   settings: {
     readSpeed: "medium", // slow, medium, fast
     notifications: true,
@@ -166,6 +168,13 @@ const apiClient = {
       method: "POST",
       body: JSON.stringify({ userId: this.userId, bookId, message, history })
     });
+  },
+
+  consultation(message, history = []) {
+    return this.request("/api/consultation", {
+      method: "POST",
+      body: JSON.stringify({ userId: this.userId, message, history })
+    });
   }
 };
 
@@ -268,7 +277,7 @@ function triggerHaptic(type = "light") {
 // ==========================================================================
 
 function addBotMessage(text, delay = 0, callback = null, inlineButton = null) {
-  setTimeout(() => {
+  return setTimeout(() => {
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const msg = document.createElement("div");
     msg.className = "msg-bubble bot";
@@ -323,19 +332,26 @@ function scrollToBottom(el) {
 
 // Bot Startup Welcomes
 function initTelegramStart() {
+  clearStartupTimers();
   DOM.tgHistory.innerHTML = "";
-  addBotMessage("👋 Привет! Рад тебя видеть.", 200);
-  addBotMessage("📚 Я твой персональный <b>Книжный консультант</b>.<br><br>Давай просто пообщаемся, как в настоящем книжном магазине, и я подберу книгу, которая действительно тебе понравится.", 700);
-  addBotMessage("Нажмите кнопку ниже или просто напишите мне приветствие, чтобы начать диалог! 👇", 1400, null, {
+  state.startupTimers.push(addBotMessage("👋 Привет! Рад тебя видеть.", 200));
+  state.startupTimers.push(addBotMessage("📚 Я твой персональный <b>Книжный консультант</b>.<br><br>Давай просто пообщаемся, как в настоящем книжном магазине, и я подберу книгу, которая действительно тебе понравится.", 700));
+  state.startupTimers.push(addBotMessage("Нажмите кнопку ниже или просто напишите мне приветствие, чтобы начать диалог! 👇", 1400, null, {
     id: "inlinePickBtn",
     text: "Начать диалог",
     emoji: "🔍",
     action: () => startConversationalQuiz()
-  });
+  }));
+}
+
+function clearStartupTimers() {
+  state.startupTimers.forEach(timer => clearTimeout(timer));
+  state.startupTimers = [];
 }
 
 // Handle text inputs
 function handleUserText(text) {
+  clearStartupTimers();
   addUserMessage(text);
   
   const cleanText = text.trim().toLowerCase();
@@ -364,7 +380,14 @@ function handleUserText(text) {
   } else if (cleanText.includes("настройки")) {
     openMiniApp("settings");
   } else {
-    addBotMessage("Я симулирую работу книжного консультанта. Нажмите <b>«🔍 Подобрать книгу»</b> в меню внизу, чтобы запустить диалог подбора, или напишите <b>«Обсудить»</b>, чтобы поговорить о прочитанном.", 600);
+    if (!state.isPremium && state.pickCount >= 2) {
+      triggerPaywall("Вы достигли лимита бесплатных подборов на сегодня. Оформите Premium подписку, чтобы получить неограниченные консультации и безлимитный доступ к поиску книг.");
+      return;
+    }
+    state.quizChatStep = "consultation";
+    state.quizAnswers = { mood: null, time: 8, tags: [] };
+    state.consultationHistory = [];
+    advanceAiConsultation(text);
   }
 }
 
@@ -379,13 +402,19 @@ function startConversationalQuiz() {
     return;
   }
 
-  state.quizChatStep = 1;
+  state.quizChatStep = "consultation";
   state.quizAnswers = { mood: null, time: 8, tags: [] };
+  state.consultationHistory = [];
   
-  addBotMessage("Привет! 🕵️‍♂️ С радостью помогу тебе выбрать отличную книгу.<br><br>Расскажи, как прошел твой день? Удалось ли отдохнуть, или сегодня был сумасшедший темп?", 300);
+  addBotMessage("Привет! 🕵️‍♂️ С радостью помогу тебе выбрать отличную книгу.<br><br>Расскажи свободно, чего хочется: настроение, жанр, что недавно понравилось или наоборот не зашло. Я сначала уточню вкус, а потом дам рекомендацию.", 300);
 }
 
 function advanceConversationalQuiz(userText) {
+  if (state.quizChatStep === "consultation") {
+    advanceAiConsultation(userText);
+    return;
+  }
+
   const text = userText.toLowerCase();
   
   // Dynamic Background NLP: Extract keywords to shape parameters
@@ -513,6 +542,35 @@ function advanceConversationalQuiz(userText) {
   }, 1000);
 }
 
+async function advanceAiConsultation(userText) {
+  addBotMessage("✍️ <i>Думаю...</i>", 0);
+  await new Promise(resolve => setTimeout(resolve, 25));
+
+  try {
+    const payload = await apiClient.consultation(userText, state.consultationHistory);
+    removeLastTyping();
+
+    state.consultationHistory.push({ role: "user", content: userText });
+    state.consultationHistory.push({ role: "assistant", content: payload.message });
+
+    if (payload.status === "ready_to_recommend" && Array.isArray(payload.recommendations) && payload.recommendations.length > 0) {
+      state.quizChatStep = null;
+      state.pickCount++;
+      registerDynamicBooks(payload.recommendations);
+      addBotMessage(payload.message, 100);
+      addBotThreeBookCards(payload.recommendations, 700);
+      return;
+    }
+
+    addBotMessage(payload.message || "Давай уточним еще немного: что важнее — атмосфера, сюжет, язык или персонажи?", 100);
+  } catch (error) {
+    console.warn("AI consultation unavailable, using local quiz fallback", error.message);
+    removeLastTyping();
+    state.quizChatStep = 1;
+    advanceConversationalQuiz(userText);
+  }
+}
+
 // Match & Rank 3 books
 function matchThreeBooks(answers) {
   // Clone booksData to sort
@@ -552,6 +610,8 @@ function matchThreeBooks(answers) {
 // Render 3 book cards in the chat (with blurring locks for Free users)
 function addBotThreeBookCards(books, delay = 300) {
   setTimeout(() => {
+    registerDynamicBooks(books);
+
     // Card 1: Best Match (🥇) - Always visible
     addSingleChatBookBubble(books[0], "🥇 Лучшее совпадение", false, 0);
     
@@ -578,6 +638,7 @@ function addSingleChatBookBubble(book, rankTitle, isLocked, delay) {
     if (state.settings.readSpeed === "slow") speedWpm = 180;
     if (state.settings.readSpeed === "fast") speedWpm = 340;
     const calculatedHours = Math.round((book.pages * 250) / (speedWpm * 60));
+    const links = getBookPurchaseLinks(book);
     
     // Build Card Content
     const cardHtml = `
@@ -609,9 +670,9 @@ function addSingleChatBookBubble(book, rankTitle, isLocked, delay) {
         
         <!-- Partnership links -->
         <div class="chat-book-links">
-          <a class="chat-book-link-item" onclick="triggerHaptic(); alert('Переход на сайт Читай-Город по партнерской ссылке (Бумажная книга)')">📖 Бумажная</a>
-          <a class="chat-book-link-item" onclick="triggerHaptic(); alert('Переход на Литрес по партнерской ссылке (Электронная книга)')">📱 Электронная</a>
-          <a class="chat-book-link-item" onclick="triggerHaptic(); alert('Переход на Букмейт по партнерской ссылке (Аудиокнига)')">🎧 Аудио</a>
+          <a class="chat-book-link-item" href="${links.paper.url}" target="_blank" rel="noopener noreferrer" onclick="triggerHaptic()">📖 Бумажная</a>
+          <a class="chat-book-link-item" href="${links.ebook.url}" target="_blank" rel="noopener noreferrer" onclick="triggerHaptic()">📱 Электронная</a>
+          <a class="chat-book-link-item" href="${links.audio.url}" target="_blank" rel="noopener noreferrer" onclick="triggerHaptic()">🎧 Аудио</a>
         </div>
         
         <span class="msg-time">${timeStr}</span>
@@ -641,6 +702,32 @@ function addSingleChatBookBubble(book, rankTitle, isLocked, delay) {
     
     scrollToBottom(DOM.tgHistory);
   }, delay);
+}
+
+function registerDynamicBooks(books) {
+  books.forEach(book => {
+    if (!window.booksData.some(item => item.id === book.id)) {
+      window.booksData.push({
+        benefits: [],
+        reviews: [],
+        coverGradient: "linear-gradient(135deg, #0f766e, #111827)",
+        coverEmoji: "📚",
+        rating: 4.7,
+        moods: ["comfort"],
+        ...book
+      });
+    }
+  });
+}
+
+function getBookPurchaseLinks(book) {
+  if (book.purchaseLinks) return book.purchaseLinks;
+  const query = encodeURIComponent(`${book.title} ${book.author}`);
+  return {
+    paper: { label: "Бумажная", url: `https://www.chitai-gorod.ru/search?phrase=${query}` },
+    ebook: { label: "Электронная", url: `https://www.litres.ru/search/?q=${query}` },
+    audio: { label: "Аудио", url: `https://www.litres.ru/search/?q=${query}%20%D0%B0%D1%83%D0%B4%D0%B8%D0%BE` }
+  };
 }
 
 function addAttachedActionsKeyboard(book, parentElement) {
@@ -1045,14 +1132,14 @@ function showBookDetailsInMiniApp(book) {
   DOM.bookAnnotation.innerText = book.annotation;
   
   DOM.bookBenefits.innerHTML = "";
-  book.benefits.forEach(benefit => {
+  (book.benefits || []).forEach(benefit => {
     const li = document.createElement("li");
     li.innerText = benefit;
     DOM.bookBenefits.appendChild(li);
   });
   
   DOM.bookReviewsList.innerHTML = "";
-  book.reviews.forEach(rev => {
+  (book.reviews || []).forEach(rev => {
     const item = document.createElement("div");
     item.className = "review-item";
     item.innerHTML = `
@@ -1070,10 +1157,10 @@ function showBookDetailsInMiniApp(book) {
 }
 
 function updatePurchaseLinks(book) {
-  const query = encodeURIComponent(`${book.title} ${book.author}`);
-  DOM.bookPaperLink.href = `https://www.chitai-gorod.ru/search?phrase=${query}`;
-  DOM.bookEbookLink.href = `https://www.litres.ru/search/?q=${query}`;
-  DOM.bookAudioLink.href = `https://www.litres.ru/search/?q=${query}%20%D0%B0%D1%83%D0%B4%D0%B8%D0%BE`;
+  const links = getBookPurchaseLinks(book);
+  DOM.bookPaperLink.href = links.paper.url;
+  DOM.bookEbookLink.href = links.ebook.url;
+  DOM.bookAudioLink.href = links.audio.url;
 }
 
 function updateResultActionButtonsState(book) {

@@ -11,13 +11,14 @@ const config = {
   databaseUrl: process.env.DATABASE_URL || "",
   databaseSsl: boolEnv("DATABASE_SSL", false),
   openaiApiKey: process.env.OPENAI_API_KEY || "",
+  openaiBaseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
   openaiModel: process.env.OPENAI_MODEL || "gpt-4.1-mini",
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || "",
   telegramWebhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || "",
   telegramPaymentProviderToken: process.env.TELEGRAM_PAYMENT_PROVIDER_TOKEN || "",
   allowMockPayments: boolEnv("ALLOW_MOCK_PAYMENTS", true),
-  premiumMonthlyPriceKopeks: numberEnv("PREMIUM_MONTHLY_PRICE_KOPEKS", 49900),
-  premiumYearlyPriceKopeks: numberEnv("PREMIUM_YEARLY_PRICE_KOPEKS", 399000)
+  premiumMonthlyPriceKopeks: numberEnv("PREMIUM_MONTHLY_PRICE_KOPEKS", 19900),
+  premiumYearlyPriceKopeks: numberEnv("PREMIUM_YEARLY_PRICE_KOPEKS", 150000)
 };
 
 function loadEnvFile(filePath) {

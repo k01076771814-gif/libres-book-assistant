@@ -8,7 +8,7 @@ const { createTelegram } = require("./telegram");
 function createApi({ config, storage }) {
   const ai = createAiClient(config);
   const payments = createPayments({ config, storage });
-  const telegram = createTelegram({ config, storage, payments });
+  const telegram = createTelegram({ config, storage, payments, ai });
 
   async function handle(req, res, url) {
     setCors(req, res, config);
@@ -69,6 +69,44 @@ function createApi({ config, storage }) {
         }));
         await storage.appendMessage({ userId: user.id, type: "recommendations", answers: body.answers || body });
         json(res, 200, { ok: true, books, isPremium });
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/consultation") {
+        const body = await readJson(req);
+        const user = await userFromBody(storage, body);
+        const alreadyRecommended = typeof storage.getRecommendedBooks === "function"
+          ? await storage.getRecommendedBooks(user.id)
+          : [];
+        const consultation = await ai.consultBooks({
+          message: body.message || "",
+          history: body.history || [],
+          alreadyRecommended,
+          candidateBooks: loadBooks()
+        });
+        const recommendations = normalizeConsultationRecommendations(consultation.recommendations || [], config);
+        if (consultation.status === "ready_to_recommend" && recommendations.length > 0) {
+          await storage.appendMessage({
+            userId: user.id,
+            type: "consultation_recommendation",
+            message: body.message || "",
+            recommendations
+          });
+        } else {
+          await storage.appendMessage({
+            userId: user.id,
+            type: "consultation_turn",
+            message: body.message || "",
+            answer: consultation.message
+          });
+        }
+        json(res, 200, {
+          ok: true,
+          status: recommendations.length > 0 ? "ready_to_recommend" : "need_more_questions",
+          message: consultation.message,
+          recommendations,
+          isPremium: user.subscription?.status === "active"
+        });
         return;
       }
 
@@ -188,6 +226,69 @@ function publicConfig(config) {
       mockPayments: config.allowMockPayments && !config.telegramPaymentProviderToken
     }
   };
+}
+
+function normalizeConsultationRecommendations(recommendations, config) {
+  const books = loadBooks();
+  return recommendations.slice(0, 3).map((recommendation, index) => {
+    const existing = books.find(book => sameBook(book, recommendation));
+    const book = existing || generatedBook(recommendation, index);
+    return {
+      ...book,
+      whyFits: recommendation.reason || book.whyFits,
+      annotation: recommendation.annotation || book.annotation,
+      purchaseLinks: purchaseLinksFor(book, config),
+      generated: !existing
+    };
+  });
+}
+
+function sameBook(book, candidate) {
+  return normalizeText(book.title) === normalizeText(candidate.title)
+    && normalizeText(book.author) === normalizeText(candidate.author);
+}
+
+function generatedBook(recommendation, index) {
+  const title = String(recommendation.title || "Книга без названия").trim();
+  const author = String(recommendation.author || "Автор не указан").trim();
+  return {
+    id: generatedBookId(title, author),
+    title,
+    author,
+    rating: 4.7,
+    pages: Number(recommendation.pages) || 320,
+    genre: recommendation.genre || "Художественная литература",
+    moods: Array.isArray(recommendation.moods) ? recommendation.moods : ["comfort"],
+    timeText: "",
+    annotation: recommendation.annotation || "Эта книга появилась в персональной рекомендации после диалога с консультантом.",
+    whyFits: recommendation.reason || "Подходит под ваши пожелания из диалога.",
+    benefits: [
+      "Персональная рекомендация по итогам диалога",
+      "Ссылки ведут на поиск книги у книжных партнеров",
+      "Сохранена в истории, чтобы не повторяться в следующих подборах"
+    ],
+    coverGradient: generatedGradients[index % generatedGradients.length],
+    coverEmoji: "📚",
+    reviews: []
+  };
+}
+
+const generatedGradients = [
+  "linear-gradient(135deg, #0f766e, #111827)",
+  "linear-gradient(135deg, #7c3aed, #1f2937)",
+  "linear-gradient(135deg, #be123c, #27272a)"
+];
+
+function generatedBookId(title, author) {
+  let hash = 0;
+  for (const char of `${title}|${author}`) {
+    hash = ((hash << 5) - hash + char.charCodeAt(0)) | 0;
+  }
+  return 900000 + Math.abs(hash % 99999);
+}
+
+function normalizeText(value) {
+  return String(value || "").trim().toLowerCase().replace(/ё/g, "е");
 }
 
 function userFromQuery(storage, url) {

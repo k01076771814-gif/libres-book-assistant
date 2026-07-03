@@ -105,6 +105,12 @@ function createJsonStorage(config) {
       db.messages.push({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...message });
       write(db);
     },
+    async getRecommendedBooks(userId, limit = 50) {
+      const messages = read().messages
+        .filter(item => item.userId === userId && item.type === "consultation_recommendation")
+        .slice(-limit);
+      return messages.flatMap(item => item.recommendations || item.payload?.recommendations || []);
+    },
     async appendTelegramEvent(update) {
       const db = read();
       db.telegramEvents ||= [];

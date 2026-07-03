@@ -215,6 +215,17 @@ function createPostgresStorage(config) {
         ]
       );
     },
+    async getRecommendedBooks(userId, limit = 50) {
+      const result = await pool.query(
+        `SELECT payload
+         FROM messages
+         WHERE user_id = $1 AND type = 'consultation_recommendation'
+         ORDER BY created_at DESC
+         LIMIT $2`,
+        [userId, limit]
+      );
+      return result.rows.flatMap(row => row.payload?.recommendations || []);
+    },
     async appendTelegramEvent(update) {
       await pool.query(
         `INSERT INTO telegram_events (update_id, payload)

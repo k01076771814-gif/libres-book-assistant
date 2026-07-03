@@ -48,6 +48,23 @@ async function main() {
   });
   assert(recommendations.books.length === 3, "recommendations must return 3 books");
 
+  const consultationQuestion = await postJson(`${base}/api/consultation`, {
+    userId: "smoke",
+    message: "Хочу что-то мрачное, но без хоррора",
+    history: []
+  });
+  assert(consultationQuestion.message, "consultation must answer");
+
+  const consultationResult = await postJson(`${base}/api/consultation`, {
+    userId: "smoke",
+    message: "Больше психологическое, можно неспешно, важны персонажи",
+    history: [
+      { role: "user", content: "Хочу что-то мрачное, но без хоррора" },
+      { role: "assistant", content: consultationQuestion.message }
+    ]
+  });
+  assert(Array.isArray(consultationResult.recommendations), "consultation recommendations must exist");
+
   const favorite = await postJson(`${base}/api/favorites`, {
     userId: "smoke",
     bookId: recommendations.books[0].id,
