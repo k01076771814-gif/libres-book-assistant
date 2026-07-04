@@ -9,7 +9,10 @@ export default {
         return json({ ok: false, error: "backend_webhook_url_not_configured" }, 500);
       }
 
-      ctx.waitUntil(forwardWebhook(request, env.BACKEND_WEBHOOK_URL));
+      const body = await request.arrayBuffer();
+      const headers = cleanHeaders(request.headers);
+
+      ctx.waitUntil(forwardWebhook(env.BACKEND_WEBHOOK_URL, request.method, headers, body));
       return json({ ok: true });
     }
 
@@ -25,13 +28,7 @@ export default {
     }
 
     const targetUrl = `${TELEGRAM_API_ORIGIN}${url.pathname}${url.search}`;
-    const headers = new Headers(request.headers);
-    headers.delete("host");
-    headers.delete("cf-connecting-ip");
-    headers.delete("cf-ipcountry");
-    headers.delete("cf-ray");
-    headers.delete("x-forwarded-for");
-    headers.delete("x-forwarded-proto");
+    const headers = cleanHeaders(request.headers);
 
     try {
       return await fetch(targetUrl, {
@@ -46,8 +43,22 @@ export default {
   }
 };
 
-async function forwardWebhook(request, backendWebhookUrl) {
-  const headers = new Headers(request.headers);
+async function forwardWebhook(backendWebhookUrl, method, headers, body) {
+  const response = await fetch(backendWebhookUrl, {
+    method,
+    headers,
+    body: ["GET", "HEAD"].includes(method) ? undefined : body,
+    redirect: "follow"
+  });
+
+  if (!response.ok) {
+    console.error("Backend webhook failed:", response.status, await response.text());
+  }
+}
+
+function cleanHeaders(sourceHeaders) {
+  const headers = new Headers(sourceHeaders);
+
   headers.delete("host");
   headers.delete("cf-connecting-ip");
   headers.delete("cf-ipcountry");
@@ -55,16 +66,7 @@ async function forwardWebhook(request, backendWebhookUrl) {
   headers.delete("x-forwarded-for");
   headers.delete("x-forwarded-proto");
 
-  const response = await fetch(backendWebhookUrl, {
-    method: request.method,
-    headers,
-    body: ["GET", "HEAD"].includes(request.method) ? undefined : request.body,
-    redirect: "follow"
-  });
-
-  if (!response.ok) {
-    console.error("Backend webhook failed:", response.status, await response.text());
-  }
+  return headers;
 }
 
 function json(payload, status = 200) {
