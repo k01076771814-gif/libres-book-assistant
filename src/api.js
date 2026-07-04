@@ -191,8 +191,17 @@ function createApi({ config, storage }) {
 
       if (req.method === "POST" && url.pathname === "/webhooks/telegram") {
         const body = await readJson(req);
-        const result = await telegram.handleWebhook(req, body);
-        json(res, result.statusCode || 200, result);
+        if (config.telegramWebhookSecret) {
+          const received = req.headers["x-telegram-bot-api-secret-token"];
+          if (received !== config.telegramWebhookSecret) {
+            json(res, 403, { ok: false, error: "bad_secret" });
+            return;
+          }
+        }
+        telegram.handleWebhook(req, body).catch(error => {
+          console.error("Telegram webhook background error:", error);
+        });
+        json(res, 200, { ok: true });
         return;
       }
 
