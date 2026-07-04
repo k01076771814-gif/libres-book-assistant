@@ -69,7 +69,10 @@ function createAiClient(config) {
           role: "system",
           content: [
             "Ты живой книжный консультант Libres.",
-            "Веди короткий теплый диалог по-русски: если вкуса читателя еще недостаточно, задай 1-2 уточняющих вопроса и не рекомендуй книгу преждевременно.",
+            "Веди короткий теплый диалог по-русски: если вкуса читателя еще недостаточно, задай один уточняющий вопрос.",
+            "Если в dialogue уже есть 3 или больше сообщения читателя, больше не задавай вопросы, а обязательно верни ready_to_recommend.",
+            "Если читатель назвал настроение, жанр, пример автора, объем или темп, считай этого достаточно для рекомендации.",
+            "Не переосмысливай короткий ответ без контекста: например, 'научную' после разговора про психологический хоррор означает научно-популярную/психологическую сторону, а не автоматически научную фантастику.",
             "Когда информации достаточно, выдай 1 основную рекомендацию и до 2 альтернатив.",
             "Не повторяй книги из alreadyRecommended.",
             "Не выдумывай несуществующие книги. Если выбираешь книгу вне knownBooks, бери только реально известные книги.",
@@ -110,7 +113,11 @@ function createAiClient(config) {
       }
 
       const data = await response.json();
-      return parseConsultation(extractText(data)) || fallbackConsultation({ message, history, alreadyRecommended, candidateBooks });
+      const parsed = parseConsultation(extractText(data));
+      if (parsed?.status === "need_more_questions" && shouldForceRecommendation({ message, history })) {
+        return fallbackConsultation({ message, history, alreadyRecommended, candidateBooks });
+      }
+      return parsed || fallbackConsultation({ message, history, alreadyRecommended, candidateBooks });
     }
   };
 }
@@ -133,6 +140,19 @@ function parseConsultation(text) {
   } catch {
     return null;
   }
+}
+
+function shouldForceRecommendation({ message, history = [] }) {
+  const userTurns = history.filter(item => item.role === "user").length + 1;
+  if (userTurns >= 4) return true;
+  if (userTurns < 3) return false;
+
+  const dialogueText = [
+    ...history.filter(item => item.role === "user").map(item => item.content),
+    message
+  ].join(" ").toLowerCase();
+
+  return /груст|ужаст|хоррор|кинг|психолог|научн|социаль|детектив|триллер|напряж|фантаст|стр|страниц|\d{2,4}/.test(dialogueText);
 }
 
 function fallbackConsultation({ message, history = [], alreadyRecommended = [], candidateBooks = [] }) {

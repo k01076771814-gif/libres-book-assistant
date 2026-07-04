@@ -226,6 +226,20 @@ function createPostgresStorage(config) {
       );
       return result.rows.flatMap(row => row.payload?.recommendations || []);
     },
+    async getConsultationHistory(userId, limit = 12) {
+      const result = await pool.query(
+        `SELECT payload
+         FROM messages
+         WHERE user_id = $1 AND type IN ('consultation_turn', 'consultation_recommendation')
+         ORDER BY created_at DESC
+         LIMIT $2`,
+        [userId, limit]
+      );
+      return result.rows
+        .reverse()
+        .flatMap(row => messageToHistory(row.payload || {}))
+        .slice(-limit);
+    },
     async appendTelegramEvent(update) {
       await pool.query(
         `INSERT INTO telegram_events (update_id, payload)
@@ -235,6 +249,19 @@ function createPostgresStorage(config) {
       );
     }
   };
+}
+
+function messageToHistory(item) {
+  const history = [];
+  if (item.message) history.push({ role: "user", content: item.message });
+  if (item.answer) history.push({ role: "assistant", content: item.answer });
+  if (!item.answer && item.recommendations?.length) {
+    history.push({
+      role: "assistant",
+      content: `Рекомендовал: ${item.recommendations.map(book => `${book.title} — ${book.author}`).join("; ")}`
+    });
+  }
+  return history;
 }
 
 function mapUser(row) {

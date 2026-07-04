@@ -111,6 +111,12 @@ function createJsonStorage(config) {
         .slice(-limit);
       return messages.flatMap(item => item.recommendations || item.payload?.recommendations || []);
     },
+    async getConsultationHistory(userId, limit = 12) {
+      const messages = read().messages
+        .filter(item => item.userId === userId && ["consultation_turn", "consultation_recommendation"].includes(item.type))
+        .slice(-limit);
+      return messages.flatMap(messageToHistory).slice(-limit);
+    },
     async appendTelegramEvent(update) {
       const db = read();
       db.telegramEvents ||= [];
@@ -118,6 +124,19 @@ function createJsonStorage(config) {
       write(db);
     }
   };
+}
+
+function messageToHistory(item) {
+  const history = [];
+  if (item.message) history.push({ role: "user", content: item.message });
+  if (item.answer) history.push({ role: "assistant", content: item.answer });
+  if (!item.answer && item.recommendations?.length) {
+    history.push({
+      role: "assistant",
+      content: `Рекомендовал: ${item.recommendations.map(book => `${book.title} — ${book.author}`).join("; ")}`
+    });
+  }
+  return history;
 }
 
 function defaultLibrary() {

@@ -45,10 +45,13 @@ function createTelegram({ config, storage, payments, ai }) {
       const alreadyRecommended = typeof storage.getRecommendedBooks === "function"
         ? await storage.getRecommendedBooks(user.id)
         : [];
+      const history = typeof storage.getConsultationHistory === "function"
+        ? await storage.getConsultationHistory(user.id)
+        : [];
       const consultation = ai
         ? await ai.consultBooks({
           message: text,
-          history: [],
+          history,
           alreadyRecommended,
           candidateBooks: loadBooks()
         })
@@ -66,12 +69,6 @@ function createTelegram({ config, storage, payments, ai }) {
       }
 
       const books = normalizeTelegramRecommendations(consultation?.recommendations || [], config);
-      await storage.appendMessage({
-        userId: user.id,
-        type: "consultation_recommendation",
-        message: text,
-        recommendations: books
-      });
       const isPremium = user.subscription?.status === "active";
       const reply = books.map((book, index) => {
         if (index > 0 && !isPremium) {
@@ -88,6 +85,13 @@ function createTelegram({ config, storage, payments, ai }) {
           `🎧 Аудио: ${book.purchaseLinks.audio.url}`
         ].join("\n");
       }).join("\n\n");
+      await storage.appendMessage({
+        userId: user.id,
+        type: "consultation_recommendation",
+        message: text,
+        recommendations: books,
+        answer: reply
+      });
       await sendMessage(config, message.chat.id, reply);
       return { ok: true };
     }
