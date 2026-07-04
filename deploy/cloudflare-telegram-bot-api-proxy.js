@@ -1,8 +1,18 @@
 const TELEGRAM_API_ORIGIN = "https://api.telegram.org";
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    if (url.pathname === "/webhook/telegram") {
+      if (!env.BACKEND_WEBHOOK_URL) {
+        return json({ ok: false, error: "backend_webhook_url_not_configured" }, 500);
+      }
+
+      ctx.waitUntil(forwardWebhook(request, env.BACKEND_WEBHOOK_URL));
+      return json({ ok: true });
+    }
+
     const match = url.pathname.match(/^\/bot([^/]+)\/([A-Za-z0-9_]+)$/);
 
     if (!match) {
@@ -35,6 +45,27 @@ export default {
     }
   }
 };
+
+async function forwardWebhook(request, backendWebhookUrl) {
+  const headers = new Headers(request.headers);
+  headers.delete("host");
+  headers.delete("cf-connecting-ip");
+  headers.delete("cf-ipcountry");
+  headers.delete("cf-ray");
+  headers.delete("x-forwarded-for");
+  headers.delete("x-forwarded-proto");
+
+  const response = await fetch(backendWebhookUrl, {
+    method: request.method,
+    headers,
+    body: ["GET", "HEAD"].includes(request.method) ? undefined : request.body,
+    redirect: "follow"
+  });
+
+  if (!response.ok) {
+    console.error("Backend webhook failed:", response.status, await response.text());
+  }
+}
 
 function json(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
