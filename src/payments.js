@@ -51,7 +51,8 @@ function createPayments({ config, storage }) {
 
 async function createTelegramInvoiceLink({ config, order, plan, amount }) {
   const title = plan === "yearly" ? "Libres Premium на 12 месяцев" : "Libres Premium на 1 месяц";
-  const response = await fetch(`https://api.telegram.org/bot${config.telegramBotToken}/createInvoiceLink`, {
+  const telegramApiBaseUrl = (config.telegramApiBaseUrl || "https://api.telegram.org").replace(/\/$/, "");
+  const response = await fetch(`${telegramApiBaseUrl}/bot${config.telegramBotToken}/createInvoiceLink`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

@@ -14,6 +14,7 @@ const config = {
   openaiBaseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
   openaiModel: process.env.OPENAI_MODEL || "gpt-4.1-mini",
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || "",
+  telegramApiBaseUrl: process.env.TELEGRAM_API_BASE_URL || "https://api.telegram.org",
   telegramWebhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || "",
   telegramPaymentProviderToken: process.env.TELEGRAM_PAYMENT_PROVIDER_TOKEN || "",
   allowMockPayments: boolEnv("ALLOW_MOCK_PAYMENTS", true),

@@ -137,19 +137,42 @@ async function sendMessage(config, chatId, text) {
     console.log("Telegram mock message:", chatId, text);
     return;
   }
-  await fetch(`https://api.telegram.org/bot${config.telegramBotToken}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text })
+  await telegramRequest(config, "sendMessage", {
+    chat_id: chatId,
+    text
   });
+}
+
+async function telegramRequest(config, method, payload) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  const baseUrl = (config.telegramApiBaseUrl || "https://api.telegram.org").replace(/\/$/, "");
+  try {
+    const response = await fetch(`${baseUrl}/bot${config.telegramBotToken}/${method}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    const body = await response.text();
+    if (!response.ok) {
+      console.error("Telegram API error:", method, response.status, body);
+      throw new Error(`Telegram ${method} failed with ${response.status}`);
+    }
+    return body ? JSON.parse(body) : { ok: true };
+  } catch (error) {
+    console.error("Telegram API request failed:", method, error.message);
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function answerPreCheckout(config, preCheckoutQueryId, ok) {
   if (!config.telegramBotToken) return;
-  await fetch(`https://api.telegram.org/bot${config.telegramBotToken}/answerPreCheckoutQuery`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pre_checkout_query_id: preCheckoutQueryId, ok })
+  await telegramRequest(config, "answerPreCheckoutQuery", {
+    pre_checkout_query_id: preCheckoutQueryId,
+    ok
   });
 }
 
