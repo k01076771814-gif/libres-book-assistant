@@ -43,7 +43,11 @@ function createTelegram({ config, storage, payments, ai }) {
       });
 
       if (/^\/start/.test(text)) {
-        await sendMessage(config, message.chat.id, "Привет! Я книжный помощник Libres. Напиши, какое настроение и что хочется почитать, а я подберу варианты.");
+        await sendMessage(config, message.chat.id, startMessage(), {
+          reply_markup: {
+            inline_keyboard: [[miniAppButton(config)]]
+          }
+        });
         return { ok: true };
       }
 
@@ -168,7 +172,7 @@ function compactBook(book) {
 }
 
 async function sendRecommendations(config, chatId, books, isPremium) {
-  await sendMessage(config, chatId, "Подобрал варианты. Первую книгу можно сразу добавить в «Мои книги», а ссылки вынес ниже кнопками.", {
+  await sendMessage(config, chatId, "Подобрал варианты. Все 3 книги я запомнил, чтобы не советовать их тебе повторно. В Telegram показываю первую, остальные открываются в Premium.", {
     reply_markup: {
       inline_keyboard: [[miniAppButton(config)]]
     }
@@ -209,14 +213,24 @@ function recommendationKeyboard(config, book) {
   return [
     [{ text: "📚 Добавить в Мои книги", callback_data: `lib:add:${book.id}` }],
     [
-      { text: "📖 Бумажная", url: book.purchaseLinks.paper.url },
-      { text: "📱 Электронная", url: book.purchaseLinks.ebook.url }
-    ],
-    [
-      { text: "🎧 Аудио", url: book.purchaseLinks.audio.url },
+      { text: "📖 Найти на ЛитРес", url: book.purchaseLinks.ebook.url },
       miniAppButton(config)
     ]
   ];
+}
+
+function startMessage() {
+  return [
+    "Привет! Я AI LIBRES — книжный помощник.",
+    "",
+    "Здесь, в Telegram, можно просто написать настроение, жанр, автора или пример книги. Я задам пару уточнений и подберу варианты.",
+    "",
+    "Mini App — это твоя книжная полка: там можно сохранять рекомендации, смотреть «Мои книги», избранное, подписку и позже возвращаться к подборкам.",
+    "",
+    "В Free-режиме я показываю первую рекомендацию, а альтернативы и расширенные AI-возможности доступны в Libres Premium.",
+    "",
+    "Напиши, что хочется почитать сейчас: например «мрачная фантастика без хоррора» или «что-то спокойное на вечер»."
+  ].join("\n");
 }
 
 function miniAppButton(config) {
