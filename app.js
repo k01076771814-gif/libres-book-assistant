@@ -923,7 +923,7 @@ function triggerDiscussSetup() {
     return;
   }
 
-  const readBooks = state.library.map(libItem => window.booksData.find(b => b.id === libItem.id));
+  const readBooks = state.library.map(bookFromLibraryItem).filter(Boolean);
   
   if (readBooks.length === 0) {
     addBotMessage("❌ Похоже, в вашей библиотеке еще нет книг для обсуждения. Пройдите подбор и добавьте книгу в «Мои книги»!", 500);
@@ -1271,7 +1271,7 @@ function renderLibrary() {
   }
   
   shelfItems.forEach(item => {
-    const book = window.booksData.find(b => b.id === item.id);
+    const book = bookFromLibraryItem(item);
     if (!book) return;
     
     const div = document.createElement("div");
@@ -1328,6 +1328,27 @@ function renderLibrary() {
   });
 }
 
+function bookFromLibraryItem(item) {
+  const catalogBook = window.booksData.find(book => Number(book.id) === Number(item.id));
+  if (catalogBook) return catalogBook;
+  if (!item.book) return null;
+
+  return {
+    id: item.id,
+    title: item.book.title || "Книга без названия",
+    author: item.book.author || "Автор не указан",
+    genre: item.book.genre || "Художественная литература",
+    pages: Number(item.book.pages) || 320,
+    rating: Number(item.book.rating) || 4.7,
+    annotation: item.book.annotation || item.book.whyFits || "",
+    whyFits: item.book.whyFits || "Добавлено из Telegram-рекомендации.",
+    benefits: item.book.benefits || ["Сохранено из персональной рекомендации"],
+    moods: item.book.moods || [],
+    coverGradient: item.book.coverGradient || "linear-gradient(135deg, #0f766e, #111827)",
+    coverEmoji: item.book.coverEmoji || "📚"
+  };
+}
+
 function updateBookProgress(bookId, newProgress) {
   triggerHaptic();
   const libItem = state.library.find(item => item.id === bookId);
@@ -1352,7 +1373,7 @@ function finishBook(bookId) {
     libItem.shelf = "finished";
     libItem.progress = 100;
     
-    const book = window.booksData.find(b => b.id === bookId);
+    const book = bookFromLibraryItem(libItem);
     
     // Commercial Feature: celebrate reading end, but suggest Premium Reading Goal settings
     addBotMessage(`🎉 <b>Поздравляю с прочтением книги «${book.title}»!</b> Вы отлично справляетесь.`);
@@ -1387,7 +1408,9 @@ window.startReadingBook = startReadingBook;
 
 function openBookDiscussFromLib(bookId) {
   closeMiniApp();
-  const book = window.booksData.find(b => b.id === bookId);
+  const libItem = state.library.find(item => Number(item.id) === Number(bookId));
+  const book = bookFromLibraryItem(libItem || { id: bookId });
+  if (!book) return;
   startAiBookDiscussion(book);
 }
 window.openBookDiscussFromLib = openBookDiscussFromLib;

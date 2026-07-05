@@ -1,4 +1,4 @@
-const { loadBooks, purchaseLinksFor } = require("./books");
+const { findBook, loadBooks, purchaseLinksFor } = require("./books");
 
 function createTelegram({ config, storage, payments, ai }) {
   return {
@@ -14,6 +14,11 @@ function createTelegram({ config, storage, payments, ai }) {
 
       if (update.pre_checkout_query) {
         await answerPreCheckout(config, update.pre_checkout_query.id, true);
+        return { ok: true };
+      }
+
+      if (update.callback_query) {
+        await handleCallbackQuery({ config, storage, query: update.callback_query });
         return { ok: true };
       }
 
@@ -79,10 +84,7 @@ function createTelegram({ config, storage, payments, ai }) {
         return [
           `${prefix} ${book.title} — ${book.author}`,
           `${book.genre}, ${book.pages} стр.`,
-          book.whyFits,
-          `📖 Бумажная: ${book.purchaseLinks.paper.url}`,
-          `📱 Электронная: ${book.purchaseLinks.ebook.url}`,
-          `🎧 Аудио: ${book.purchaseLinks.audio.url}`
+          book.whyFits
         ].join("\n");
       }).join("\n\n");
       await storage.appendMessage({
@@ -92,9 +94,135 @@ function createTelegram({ config, storage, payments, ai }) {
         recommendations: books,
         answer: reply
       });
-      await sendMessage(config, message.chat.id, reply);
+      await sendRecommendations(config, message.chat.id, books, isPremium);
       return { ok: true };
     }
+  };
+}
+
+async function handleCallbackQuery({ config, storage, query }) {
+  const data = String(query.data || "");
+  const chatId = query.message?.chat?.id;
+  const telegramId = query.from?.id;
+
+  if (!data.startsWith("lib:add:") || !telegramId) {
+    await answerCallbackQuery(config, query.id, "Команда не распознана");
+    return;
+  }
+
+  const bookId = Number(data.slice("lib:add:".length));
+  if (!Number.isFinite(bookId)) {
+    await answerCallbackQuery(config, query.id, "Не получилось определить книгу");
+    return;
+  }
+
+  const user = await storage.getOrCreateUser({
+    telegramId,
+    name: [query.from?.first_name, query.from?.last_name].filter(Boolean).join(" ") || "Читатель"
+  });
+  const library = await storage.getLibrary(user.id);
+  let item = library.find(entry => Number(entry.id) === bookId);
+  if (!item) {
+    const recommendedBook = await findRecommendedBook(storage, user.id, bookId);
+    const catalogBook = findBook(bookId);
+    item = {
+      id: bookId,
+      progress: 0,
+      shelf: "want",
+      ...(recommendedBook && !catalogBook ? { book: compactBook(recommendedBook) } : {})
+    };
+    library.push(item);
+  } else {
+    item.shelf = item.shelf || "want";
+  }
+  await storage.setLibrary(user.id, library);
+
+  await answerCallbackQuery(config, query.id, "Добавил в «Мои книги»");
+  if (chatId) {
+    await sendMessage(config, chatId, "Готово, добавил в «Мои книги» 📚", {
+      reply_markup: {
+        inline_keyboard: [[miniAppButton(config)]]
+      }
+    });
+  }
+}
+
+async function findRecommendedBook(storage, userId, bookId) {
+  if (typeof storage.getRecommendedBooks !== "function") return null;
+  const books = await storage.getRecommendedBooks(userId, 20);
+  return books.find(book => Number(book.id) === bookId) || null;
+}
+
+function compactBook(book) {
+  return {
+    id: book.id,
+    title: book.title,
+    author: book.author,
+    genre: book.genre,
+    pages: book.pages,
+    whyFits: book.whyFits,
+    annotation: book.annotation,
+    coverGradient: book.coverGradient,
+    coverEmoji: book.coverEmoji
+  };
+}
+
+async function sendRecommendations(config, chatId, books, isPremium) {
+  await sendMessage(config, chatId, "Подобрал варианты. Первую книгу можно сразу добавить в «Мои книги», а ссылки вынес ниже кнопками.", {
+    reply_markup: {
+      inline_keyboard: [[miniAppButton(config)]]
+    }
+  });
+
+  for (const [index, book] of books.entries()) {
+    const locked = index > 0 && !isPremium;
+    if (locked) {
+      const prefix = index === 1 ? "🥈" : "🥉";
+      await sendMessage(config, chatId, `${prefix} Книга скрыта. Откройте в Mini App или подключите Premium ⭐`, {
+        reply_markup: {
+          inline_keyboard: [[miniAppButton(config)]]
+        }
+      });
+      continue;
+    }
+
+    await sendMessage(config, chatId, recommendationText(book, index), {
+      disable_web_page_preview: true,
+      reply_markup: {
+        inline_keyboard: recommendationKeyboard(config, book)
+      }
+    });
+  }
+}
+
+function recommendationText(book, index) {
+  const prefix = ["🥇", "🥈", "🥉"][index] || "📚";
+  return [
+    `${prefix} ${book.title} — ${book.author}`,
+    `${book.genre}, ${book.pages} стр.`,
+    "",
+    book.whyFits
+  ].join("\n");
+}
+
+function recommendationKeyboard(config, book) {
+  return [
+    [{ text: "📚 Добавить в Мои книги", callback_data: `lib:add:${book.id}` }],
+    [
+      { text: "📖 Бумажная", url: book.purchaseLinks.paper.url },
+      { text: "📱 Электронная", url: book.purchaseLinks.ebook.url }
+    ],
+    [
+      { text: "🎧 Аудио", url: book.purchaseLinks.audio.url },
+      miniAppButton(config)
+    ]
+  ];
+}
+
+function miniAppButton(config) {
+  return {
+    text: "🚀 Mini App",
+    web_app: { url: config.publicBaseUrl }
   };
 }
 
@@ -136,14 +264,15 @@ function normalizeText(value) {
   return String(value || "").trim().toLowerCase().replace(/ё/g, "е");
 }
 
-async function sendMessage(config, chatId, text) {
+async function sendMessage(config, chatId, text, extra = {}) {
   if (!config.telegramBotToken) {
-    console.log("Telegram mock message:", chatId, text);
+    console.log("Telegram mock message:", chatId, text, extra);
     return;
   }
   await telegramRequest(config, "sendMessage", {
     chat_id: chatId,
-    text
+    text,
+    ...extra
   });
 }
 
@@ -177,6 +306,15 @@ async function answerPreCheckout(config, preCheckoutQueryId, ok) {
   await telegramRequest(config, "answerPreCheckoutQuery", {
     pre_checkout_query_id: preCheckoutQueryId,
     ok
+  });
+}
+
+async function answerCallbackQuery(config, callbackQueryId, text) {
+  if (!config.telegramBotToken) return;
+  await telegramRequest(config, "answerCallbackQuery", {
+    callback_query_id: callbackQueryId,
+    text,
+    show_alert: false
   });
 }
 
