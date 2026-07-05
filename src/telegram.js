@@ -79,6 +79,7 @@ function createTelegram({ config, storage, payments, ai }) {
 
       const books = normalizeTelegramRecommendations(consultation?.recommendations || [], config);
       const isPremium = user.subscription?.status === "active";
+      const visibleBooks = isPremium ? books : books.slice(0, 1);
       const reply = books.map((book, index) => {
         if (index > 0 && !isPremium) {
           const prefix = index === 1 ? "🥈" : "🥉";
@@ -95,7 +96,7 @@ function createTelegram({ config, storage, payments, ai }) {
         userId: user.id,
         type: "consultation_recommendation",
         message: text,
-        recommendations: books,
+        recommendations: visibleBooks,
         answer: reply
       });
       await sendRecommendations(config, message.chat.id, books, isPremium);
@@ -172,7 +173,9 @@ function compactBook(book) {
 }
 
 async function sendRecommendations(config, chatId, books, isPremium) {
-  await sendMessage(config, chatId, "Подобрал варианты. Все 3 книги я запомнил, чтобы не советовать их тебе повторно. В Telegram показываю первую, остальные открываются в Premium.", {
+  await sendMessage(config, chatId, isPremium
+    ? "Подобрал варианты. Все 3 книги я запомнил, чтобы не советовать их тебе повторно."
+    : "Подобрал варианты. В Free я запомню только открытую книгу, а скрытые альтернативы смогут появиться в следующих подборках.", {
     reply_markup: {
       inline_keyboard: [[miniAppButton(config)]]
     }
